@@ -8,9 +8,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strconv"
-	"strings"
-	"sync"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
@@ -20,6 +17,7 @@ import (
 var (
 	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
 	logStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#008060"))
+	warningStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffff00"))
 	boldErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Bold(true)
 	boldLogStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#008060")).Bold(true)
 )
@@ -44,8 +42,14 @@ func CreateMapping(sourceConfig api.Quickbase, targetConfig api.Quickbase) map[s
 	}
 
 	mapping[sourceRes.AppId] = targetRes.AppId
-	mapping[sourceConfig.UserToken] = targetConfig.UserToken
-	mapping[sourceConfig.Realm] = targetConfig.Realm
+
+	if sourceConfig.UserToken != targetConfig.UserToken {
+		mapping[sourceConfig.UserToken] = targetConfig.UserToken
+	}
+
+	if sourceConfig.Realm != targetConfig.Realm {
+		mapping[sourceConfig.Realm] = targetConfig.Realm
+	}
 
 	filemanager.SaveJsonToFile("mapping/mapping", mapping)
 
@@ -54,153 +58,20 @@ func CreateMapping(sourceConfig api.Quickbase, targetConfig api.Quickbase) map[s
 	return mapping
 }
 
-func SavePages(sourceConfig api.Quickbase) {
-	log.Println(boldLogStyle.Render("Processing code pages"))
+func VerifyFolders() {
+	folders := []string{"pages", "pages/source", "pages/target", "fields", "fields/source", "fields/target", "tables", "mapping"}
 
-	var wg sync.WaitGroup
-	config := config.ReadConfig()
+	for _, folder := range folders {
+		if _, err := os.Stat(folder); err != nil {
+			err = os.Mkdir(folder, 0755)
 
-	for _, pageId := range config.Pages {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			log.Println(logStyle.Render("Saving Code Page -- " + strconv.Itoa(pageId)))
-
-			strPageId := strconv.Itoa(pageId)
-			res := sourceConfig.GetPage(strPageId)
-			filemanager.SaveFile("pages/source/"+strPageId+".txt", strings.TrimSpace(res.PageBody))
-		}()
-	}
-
-	wg.Wait()
-}
-
-func ReplacePages(targetConfig api.Quickbase) {
-	files, err := os.ReadDir("pages/source")
-
-	if err != nil {
-		log.Fatal(errorStyle.Render(err.Error()))
-	}
-
-	var wg sync.WaitGroup
-
-	// Looping through each file
-	for _, file := range files {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			content := filemanager.ReadFile("pages/source/" + file.Name())
-
-			mapping := filemanager.ReadMapping()
-			flag := false
-
-			// Replacing content
-			for source, target := range mapping {
-				if strings.Contains(content, source) {
-					flag = true
-					content = strings.ReplaceAll(content, source, target)
-				}
+			if err != nil {
+				log.Fatal(err)
 			}
-
-			if flag {
-				pageId := strings.TrimSuffix(file.Name(), ".txt")
-
-				log.Println(logStyle.Render("Updating Code Page -- " + pageId))
-
-				targetConfig.ReplacePage(pageId, content)
-				filemanager.SaveFile("pages/target/"+file.Name(), content)
-				flag = false
-			}
-		}()
-
-	}
-
-	wg.Wait()
-}
-
-func ProcessSourceFields(sourceConfig api.Quickbase) {
-	log.Println(boldLogStyle.Render("Processing source fields"))
-
-	var wg sync.WaitGroup
-	mapping := filemanager.ReadMapping()
-
-	// Loop through source table ids
-	for tableId := range mapping {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			fields := sourceConfig.GetFields(tableId)
-			fieldsToUpdate := make([]api.Field, 0)
-
-			// Find only formula fields where table id exists
-			for _, field := range fields {
-				formula := field.Properties.Formula
-				flag := false
-
-				if len(formula) > 0 {
-					for source := range mapping {
-						if strings.Contains(formula, source) {
-							flag = true
-						}
-					}
-				}
-
-				if flag {
-					log.Println(logStyle.Render("Field found -- " + field.Label))
-					fieldsToUpdate = append(fieldsToUpdate, field)
-					flag = false
-				}
-			}
-
-			if len(fieldsToUpdate) > 0 {
-				filemanager.SaveJsonToFile("fields/source/"+tableId, fieldsToUpdate)
-			}
-		}()
-	}
-
-	wg.Wait()
-}
-
-func SaveFields(targetConfig api.Quickbase) {
-	var wg sync.WaitGroup
-	mapping := filemanager.ReadMapping()
-	files, err := os.ReadDir("fields/source")
-
-	if err != nil {
-		log.Fatal(errorStyle.Render(err.Error()))
-	}
-
-	for _, file := range files {
-		fields := filemanager.ReadFields("fields/source/" + file.Name())
-		targetTable := mapping[strings.TrimSuffix(file.Name(), ".json")]
-
-		for _, field := range fields {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-				formula := field.Properties.Formula
-
-				for source, target := range mapping {
-					formula = strings.ReplaceAll(formula, source, target)
-				}
-
-				field.Properties.Formula = formula
-
-				log.Println(logStyle.Render("Updating Field -- " + field.Label))
-
-				targetConfig.UpdateField(targetTable, strconv.Itoa(field.ID), formula)
-				filemanager.SaveJsonToFile("fields/target/"+targetTable+"_"+strconv.Itoa(field.ID)+"_"+field.Label, field)
-			}()
+		} else {
+			ClearFolder(folder)
 		}
 	}
-
-	wg.Wait()
 }
 
 func ClearFolder(folderName string) {
@@ -234,9 +105,9 @@ func generateAppTable() table.Model {
 	columns := []table.Column{
 		{Title: "Type", Width: 10},
 		{Title: "App ID", Width: 10},
-		{Title: "App Name", Width: 30},
-		{Title: "Realm", Width: 50},
-		{Title: "Token", Width: 50},
+		{Title: "App Name", Width: 70},
+		{Title: "Realm", Width: 70},
+		{Title: "Token", Width: 70},
 	}
 
 	rows := []table.Row{
@@ -287,11 +158,7 @@ func main() {
 				Name:  "run",
 				Usage: "Runs the program with both code pages and fields options",
 				Action: func(ctx *cli.Context) error {
-					folders := []string{"mapping", "tables", "pages/source", "pages/target", "fields/source", "fields/target"}
-
-					for _, folder := range folders {
-						ClearFolder(folder)
-					}
+					VerifyFolders()
 
 					sourceConfig, targetConfig := GetQuickbaseConfigs()
 
@@ -336,6 +203,17 @@ func main() {
 					CreateMapping(sourceConfig, targetConfig)
 					SavePages(sourceConfig)
 					ReplacePages(targetConfig)
+
+					return nil
+				},
+			},
+			{
+				Name:  "fieldslength",
+				Usage: "Updates the maximum length of text and multiline fields",
+				Action: func(ctx *cli.Context) error {
+					_, targetConfig := GetQuickbaseConfigs()
+
+					UpdateFieldsLength(targetConfig)
 
 					return nil
 				},

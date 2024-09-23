@@ -44,7 +44,10 @@ func createConfig() Config {
 		log.Fatal(err)
 	}
 
+	defer configFile.Close()
+
 	encoder := json.NewEncoder(configFile)
+	encoder.SetIndent("", "  ")
 
 	err = encoder.Encode(defaultConfig)
 

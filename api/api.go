@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -50,6 +51,7 @@ type Table struct {
 
 type Field struct {
 	ID               int    `json:"id"`
+	Mode             string `json:"mode"`
 	Label            string `json:"label"`
 	FieldType        string `json:"fieldType"`
 	NoWrap           bool   `json:"noWrap"`
@@ -308,7 +310,7 @@ func (q *Quickbase) UpdateField(tableId string, fieldId string, formula string) 
 	xmlBody, err := xml.MarshalIndent(UpdateFieldBody{
 		UserToken: q.UserToken,
 		FieldID:   fieldId,
-		Formula:   "<![CDATA[" + formula + "]]",
+		Formula:   formula,
 	}, " ", "  ")
 
 	if err != nil {
@@ -343,4 +345,49 @@ func (q *Quickbase) UpdateField(tableId string, fieldId string, formula string) 
 	}
 
 	return response
+}
+
+func (q *Quickbase) UpdateFieldLength(tableId string, fieldId int, fieldType string) Field {
+	client := http.Client{}
+
+	fieldIdStr := strconv.Itoa(fieldId)
+
+	var maxLength int
+
+	if fieldType == "text" {
+		maxLength = 50
+	} else if fieldType == "text-multi-line" {
+		maxLength = 200
+	} else {
+		log.Fatalln("Invalid Field Type")
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"properties": map[string]interface{}{
+			"maxLength": maxLength,
+		},
+	})
+
+	req, err := http.NewRequest("POST", "https://api.quickbase.com/v1/fields/"+fieldIdStr+"?tableId="+tableId, bytes.NewBuffer(body))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header = http.Header{
+		"QB-Realm-Hostname": {q.Realm},
+		"Authorization":     {"QB-USER-TOKEN " + q.UserToken},
+	}
+
+	res, err := client.Do(req)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var field Field
+
+	json.NewDecoder(res.Body).Decode(&field)
+
+	return field
 }
