@@ -48,6 +48,7 @@ func CustomRules() {
 
 			newContent := strings.ReplaceAll(content, "[ABCDName]", "["+field.Label+"]")
 			newContent = strings.ReplaceAll(newContent, "ABCDVarName", fieldName)
+			newContent = strings.ReplaceAll(newContent, "ABCDMessageName", field.Label)
 
 			file.WriteString(newContent)
 			file.WriteString("\n\n")
