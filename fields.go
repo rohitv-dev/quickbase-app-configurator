@@ -3,7 +3,6 @@ package main
 import (
 	"app-configuration/api"
 	filemanager "app-configuration/file_manager"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -118,8 +117,6 @@ func SaveTargetFields(targetConfig api.Quickbase) {
 
 		go func(i int, t api.Table) {
 			defer wg.Done()
-
-			fmt.Println(index, t.ID, t.Name)
 
 			fields := targetConfig.GetFields(t.ID)
 
