@@ -122,7 +122,7 @@ func SaveTargetFields(targetConfig api.Quickbase) {
 
 			targetFields[index] = TargetField{
 				TableId:   t.ID,
-				TableName: t.Name,
+				TableName: filemanager.SanitizeFileName(t.Name),
 				Fields:    fields,
 			}
 

@@ -9,8 +9,8 @@ import (
 	"regexp"
 )
 
-func sanitizeFileName(fileName string) string {
-	regex, err := regexp.Compile(`[?!&*]`)
+func SanitizeFileName(fileName string) string {
+	regex, err := regexp.Compile(`[?!&*/]`)
 
 	if err != nil {
 		log.Fatal(err)
@@ -52,7 +52,7 @@ func ReadJSONFile[T any](filePath string) T {
 }
 
 func SaveJsonToFile(fileName string, content any) error {
-	file, err := os.Create(sanitizeFileName(fileName) + ".json")
+	file, err := os.Create(SanitizeFileName(fileName) + ".json")
 
 	if err != nil {
 		return nil
@@ -97,7 +97,7 @@ func ReadTextFile(filePath string) string {
 }
 
 func SaveFile(fileName string, content string) {
-	err := os.WriteFile(sanitizeFileName(fileName), []byte(content), 0644)
+	err := os.WriteFile(SanitizeFileName(fileName), []byte(content), 0644)
 
 	if err != nil {
 		log.Fatal(err)
