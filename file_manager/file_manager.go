@@ -3,6 +3,7 @@ package filemanager
 import (
 	"app-configuration/api"
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -34,6 +35,22 @@ func ReadMapping() map[string]string {
 	return data
 }
 
+func ReadJSONFile[T any](filePath string) T {
+	var result T
+
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	decoder := json.NewDecoder(file)
+
+	decoder.Decode(&result)
+
+	return result
+}
+
 func SaveJsonToFile(fileName string, content any) error {
 	file, err := os.Create(sanitizeFileName(fileName) + ".json")
 
@@ -57,6 +74,26 @@ func ReadFile(fileName string) string {
 	}
 
 	return string(content)
+}
+
+func ReadTextFile(filePath string) string {
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	bytes, err := io.ReadAll(file)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	content := string(bytes)
+
+	return content
 }
 
 func SaveFile(fileName string, content string) {

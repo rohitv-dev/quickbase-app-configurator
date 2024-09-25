@@ -59,7 +59,7 @@ func CreateMapping(sourceConfig api.Quickbase, targetConfig api.Quickbase) map[s
 }
 
 func VerifyFolders() {
-	folders := []string{"pages", "pages/source", "pages/target", "fields", "fields/source", "fields/target", "tables", "mapping"}
+	folders := []string{"pages", "pages/source", "pages/target", "fields", "fields/source", "fields/target", "tables", "mapping", "rules", "placeholders"}
 
 	for _, folder := range folders {
 		if _, err := os.Stat(folder); err != nil {
@@ -69,7 +69,9 @@ func VerifyFolders() {
 				log.Fatal(err)
 			}
 		} else {
-			ClearFolder(folder)
+			if folder != "placeholders" {
+				ClearFolder(folder)
+			}
 		}
 	}
 }
@@ -211,9 +213,26 @@ func main() {
 				Name:  "fieldslength",
 				Usage: "Updates the maximum length of text and multiline fields",
 				Action: func(ctx *cli.Context) error {
+					VerifyFolders()
+
 					_, targetConfig := GetQuickbaseConfigs()
 
+					SaveTargetFields(targetConfig)
 					UpdateFieldsLength(targetConfig)
+
+					return nil
+				},
+			},
+			{
+				Name:  "rules",
+				Usage: "Generates text and file rules to include in custom data rules",
+				Action: func(ctx *cli.Context) error {
+					VerifyFolders()
+
+					_, targetConfig := GetQuickbaseConfigs()
+
+					SaveTargetFields(targetConfig)
+					CustomRules()
 
 					return nil
 				},

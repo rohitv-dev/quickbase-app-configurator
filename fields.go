@@ -3,12 +3,19 @@ package main
 import (
 	"app-configuration/api"
 	filemanager "app-configuration/file_manager"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 )
+
+type TargetField struct {
+	TableId   string
+	TableName string
+	Fields    []api.Field
+}
 
 func ProcessSourceFields(sourceConfig api.Quickbase) {
 	log.Println(boldLogStyle.Render("Processing source fields"))
@@ -90,4 +97,78 @@ func SaveFields(targetConfig api.Quickbase) {
 	}
 
 	wg.Wait()
+}
+
+func SaveTargetFields(targetConfig api.Quickbase) {
+	var wg sync.WaitGroup
+
+	log.Println(boldLogStyle.Render("Saving Target Fields..."))
+
+	if _, err := os.Stat("target_fields.json"); err == nil {
+		log.Println(warningStyle.Render("target_fields.json already exists, using it"))
+		return
+	}
+
+	tablesRes := targetConfig.GetTables()
+
+	targetFields := make([]TargetField, len(tablesRes.Tables))
+
+	for index, table := range tablesRes.Tables {
+		wg.Add(1)
+
+		go func(i int, t api.Table) {
+			defer wg.Done()
+
+			fmt.Println(index, t.ID, t.Name)
+
+			fields := targetConfig.GetFields(t.ID)
+
+			targetFields[index] = TargetField{
+				TableId:   t.ID,
+				TableName: t.Name,
+				Fields:    fields,
+			}
+
+		}(index, table)
+	}
+
+	wg.Wait()
+
+	filemanager.SaveJsonToFile("target_fields", targetFields)
+}
+
+func GetTextFields() []TargetField {
+	targetFields := filemanager.ReadJSONFile[[]TargetField]("target_fields.json")
+
+	for index, target := range targetFields {
+		textFields := make([]api.Field, 0)
+
+		for _, field := range target.Fields {
+			if (field.FieldType == "text" || field.FieldType == "text-multi-line") && (field.Mode == "" && !field.Properties.ForeignKey) {
+				textFields = append(textFields, field)
+			}
+		}
+
+		targetFields[index].Fields = textFields
+	}
+
+	return targetFields
+}
+
+func GetFileFields() []TargetField {
+	targetFields := filemanager.ReadJSONFile[[]TargetField]("target_fields.json")
+
+	for index, target := range targetFields {
+		fileFields := make([]api.Field, 0)
+
+		for _, field := range target.Fields {
+			if field.FieldType == "file" {
+				fileFields = append(fileFields, field)
+			}
+		}
+
+		targetFields[index].Fields = fileFields
+	}
+
+	return targetFields
 }

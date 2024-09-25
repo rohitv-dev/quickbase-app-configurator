@@ -1,8 +1,12 @@
 config.json
 app-configuration.exe
+fields.txt
+target_fields.json
+custom_text.txt
 
 fields/*/*
 pages/*/*
 mapping/*
 tables/*
-fields.txt
+text_fields/*
+placeholders/*
