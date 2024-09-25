@@ -24,6 +24,10 @@ func CustomRules() {
 		fieldsList := ""
 		fileName := "rules/" + target.TableName + ".txt"
 
+		if len(target.Fields) == 0 {
+			continue
+		}
+
 		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE, 0600)
 
 		if err != nil {
@@ -57,6 +61,10 @@ func CustomRules() {
 
 	for _, target := range fileFields {
 		fileName := "rules/" + target.TableName + ".txt"
+
+		if len(target.Fields) == 0 {
+			continue
+		}
 
 		file, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE, 0600)
 
