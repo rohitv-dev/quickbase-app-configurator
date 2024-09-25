@@ -14,11 +14,11 @@ func UpdateFieldsLength(targetConfig api.Quickbase) {
 
 	tablesRes := targetConfig.GetTables()
 
-	mapping := make(map[string][]string)
+	mapping := sync.Map{}
 
 	for _, table := range tablesRes.Tables {
 		fields := targetConfig.GetFields(table.ID)
-		mapping[table.Name] = []string{}
+		mapping.Store(table.Name, []string{})
 
 		for _, field := range fields {
 			wg.Add(1)
@@ -29,7 +29,17 @@ func UpdateFieldsLength(targetConfig api.Quickbase) {
 				if (field.FieldType == "text" || field.FieldType == "text-multi-line") && (field.Mode == "" && !field.Properties.ForeignKey) {
 					log.Println(logStyle.Render("Updating Field Length for Field " + strconv.Itoa(field.ID) + "/" + field.Label + " in Table " + table.Name))
 					targetConfig.UpdateFieldLength(table.ID, field.ID, field.FieldType)
-					mapping[table.Name] = append(mapping[table.Name], field.Label)
+
+					value, ok := mapping.Load(table.Name)
+
+					if !ok {
+						mapping.Store(table.Name, []string{field.Label})
+					} else {
+						if v, ok := value.([]string); ok {
+							newValue := append(v, field.Label)
+							mapping.Store(table.Name, newValue)
+						}
+					}
 				}
 			}()
 		}
@@ -49,15 +59,21 @@ func UpdateFieldsLength(targetConfig api.Quickbase) {
 		log.Fatal(boldErrorStyle.Render(err.Error()))
 	}
 
-	for tableName, fields := range mapping {
-		file.WriteString(tableName + "\n")
-		file.WriteString("--------------\n")
+	mapping.Range(func(tableName, fields any) bool {
+		if tableNameStr, ok := tableName.(string); ok {
+			file.WriteString(tableNameStr + "\n")
+			file.WriteString("--------------\n")
 
-		for _, field := range fields {
-			file.WriteString(field + "\n")
+			if fieldsList, ok := fields.([]string); ok {
+				for _, field := range fieldsList {
+					file.WriteString(field + "\n")
+				}
+				file.WriteString("\n")
+			}
 		}
-		file.WriteString("\n")
-	}
+
+		return true
+	})
 
 	log.Println(boldLogStyle.Render("Updated Fields Length"))
 }
