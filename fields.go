@@ -152,6 +152,24 @@ func GetTextFields() []TargetField {
 	return targetFields
 }
 
+func GetToUpdateTextFields() []TargetField {
+	targetFields := GetTextFields()
+
+	for index, target := range targetFields {
+		textFields := make([]api.Field, 0)
+
+		for _, field := range target.Fields {
+			if (field.FieldType == "text" && field.Properties.MaxLength != 50) || (field.FieldType == "text-multi-line" && field.Properties.MaxLength != 200) {
+				textFields = append(textFields, field)
+			}
+		}
+
+		targetFields[index].Fields = textFields
+	}
+
+	return targetFields
+}
+
 func GetFileFields() []TargetField {
 	targetFields := filemanager.ReadJSONFile[[]TargetField]("target_fields.json")
 

@@ -10,7 +10,7 @@ import (
 func UpdateFieldsLength(targetConfig api.Quickbase) {
 	var wg sync.WaitGroup
 
-	textFields := GetTextFields()
+	textFields := GetToUpdateTextFields()
 
 	file, err := os.OpenFile("fields.txt", os.O_APPEND|os.O_CREATE, 0600)
 
@@ -25,6 +25,10 @@ func UpdateFieldsLength(targetConfig api.Quickbase) {
 	}
 
 	for _, target := range textFields {
+		if len(target.Fields) == 0 {
+			continue
+		}
+
 		for _, field := range target.Fields {
 			wg.Add(1)
 
