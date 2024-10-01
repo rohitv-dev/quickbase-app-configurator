@@ -98,14 +98,14 @@ func SaveFields(targetConfig api.Quickbase) {
 	wg.Wait()
 }
 
-func SaveTargetFields(targetConfig api.Quickbase) {
+func SaveTargetFields(targetConfig api.Quickbase) []TargetField {
 	var wg sync.WaitGroup
 
 	log.Println(boldLogStyle.Render("Saving Target Fields..."))
 
 	if _, err := os.Stat("target_fields.json"); err == nil {
 		log.Println(warningStyle.Render("target_fields.json already exists, using it"))
-		return
+		return filemanager.ReadJSONFile[[]TargetField]("target_fields.json")
 	}
 
 	tablesRes := targetConfig.GetTables()
@@ -132,6 +132,8 @@ func SaveTargetFields(targetConfig api.Quickbase) {
 	wg.Wait()
 
 	filemanager.SaveJsonToFile("target_fields", targetFields)
+
+	return targetFields
 }
 
 func GetTextFields() []TargetField {
@@ -141,7 +143,7 @@ func GetTextFields() []TargetField {
 		textFields := make([]api.Field, 0)
 
 		for _, field := range target.Fields {
-			if (field.FieldType == "text" || field.FieldType == "text-multi-line") && (field.Mode == "" && !field.Properties.ForeignKey) {
+			if (field.FieldType == TEXT_FIELD || field.FieldType == MULTILINE_FIELD) && (field.Mode == "" && !field.Properties.ForeignKey) {
 				textFields = append(textFields, field)
 			}
 		}
@@ -159,7 +161,7 @@ func GetToUpdateTextFields() []TargetField {
 		textFields := make([]api.Field, 0)
 
 		for _, field := range target.Fields {
-			if (field.FieldType == "text" && field.Properties.MaxLength != 50) || (field.FieldType == "text-multi-line" && field.Properties.MaxLength != 200) {
+			if (field.FieldType == TEXT_FIELD && field.Properties.MaxLength != TEXT_MAX_LENGTH) || (field.FieldType == MULTILINE_FIELD && field.Properties.MaxLength != MULTILINE_MAX_LENGTH) {
 				textFields = append(textFields, field)
 			}
 		}
@@ -186,4 +188,25 @@ func GetFileFields() []TargetField {
 	}
 
 	return targetFields
+}
+
+func VerifyFieldsLength(targetConfig api.Quickbase) {
+	log.Println(boldLogStyle.Render("Verifying Fields Length"))
+
+	count := 0
+
+	SaveTargetFields(targetConfig)
+
+	targetFields := GetTextFields()
+
+	for _, target := range targetFields {
+		for _, field := range target.Fields {
+			if (field.FieldType == TEXT_FIELD && field.Properties.MaxLength != TEXT_MAX_LENGTH) || (field.FieldType == MULTILINE_FIELD && field.Properties.MaxLength != MULTILINE_MAX_LENGTH) {
+				log.Println(errorStyle.Render("Max Length Not Updated For Field " + field.Label + " in Table " + target.TableName))
+				count += 1
+			}
+		}
+	}
+
+	log.Println(boldLogStyle.Render("Verified fields successfully"))
 }

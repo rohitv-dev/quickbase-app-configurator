@@ -7,6 +7,14 @@ import (
 	"sync"
 )
 
+var (
+	TEXT_FIELD           = "text"
+	MULTILINE_FIELD      = "text-multi-line"
+	FILE_FIELD           = "file"
+	TEXT_MAX_LENGTH      = 50
+	MULTILINE_MAX_LENGTH = 200
+)
+
 func UpdateFieldsLength(targetConfig api.Quickbase) {
 	var wg sync.WaitGroup
 

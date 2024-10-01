@@ -20,6 +20,8 @@ var (
 	warningStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffff00"))
 	boldErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Bold(true)
 	boldLogStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#008060")).Bold(true)
+
+	folders = []string{"pages", "pages/source", "pages/target", "fields", "fields/source", "fields/target", "tables", "mapping", "rules", "placeholders"}
 )
 
 func CreateMapping(sourceConfig api.Quickbase, targetConfig api.Quickbase) map[string]string {
@@ -59,8 +61,6 @@ func CreateMapping(sourceConfig api.Quickbase, targetConfig api.Quickbase) map[s
 }
 
 func VerifyFolders() {
-	folders := []string{"pages", "pages/source", "pages/target", "fields", "fields/source", "fields/target", "tables", "mapping", "rules", "placeholders"}
-
 	for _, folder := range folders {
 		if _, err := os.Stat(folder); err != nil {
 			err = os.Mkdir(folder, 0755)
@@ -219,6 +219,20 @@ func main() {
 
 					SaveTargetFields(targetConfig)
 					UpdateFieldsLength(targetConfig)
+					VerifyFieldsLength(targetConfig)
+
+					return nil
+				},
+			},
+			{
+				Name:  "verifyfields",
+				Usage: "Verify field max length for all fields",
+				Action: func(ctx *cli.Context) error {
+					VerifyFolders()
+
+					_, targetConfig := GetQuickbaseConfigs()
+
+					VerifyFieldsLength(targetConfig)
 
 					return nil
 				},
@@ -257,14 +271,10 @@ func main() {
 				},
 			},
 			{
-				Name:  "clear",
-				Usage: "Clears all the folders",
+				Name:  "verify",
+				Usage: "Creates folders if not present, or clears files of existing folders",
 				Action: func(ctx *cli.Context) error {
-					folders := []string{"mapping", "tables", "pages/source", "pages/target", "fields/source", "fields/target"}
-
-					for _, folder := range folders {
-						ClearFolder(folder)
-					}
+					VerifyFolders()
 
 					return nil
 				},
